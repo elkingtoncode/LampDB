@@ -1,0 +1,19 @@
+{
+  "version": "1.4.1",
+  "compilerOptions": {
+    "target": "ES5",
+    "module": "commonjs",
+    "declaration": false,
+    "noImplicitAny": false,
+    "noEmitOnError": true,
+    "removeComments": true,
+    "noLib": false,
+    "out": "./js/test.js",
+    "sourceMap": false
+  },
+  "files": [
+    "./header.ts",
+    "./util.ts",
+    "./components.ts"
+  ]
+}

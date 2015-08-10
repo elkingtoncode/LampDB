@@ -1,0 +1,93 @@
+statement ok
+CREATE DATABASE a
+
+query TTT colnames
+SHOW GRANTS ON DATABASE a
+----
+Database User Privileges
+a        root READ,WRITE
+
+statement error TODO\(marc\): implement SHOW GRANT with no targets
+SHOW GRANTS
+
+statement error root user does not have read privilege
+REVOKE READ ON DATABASE a FROM root
+
+statement ok
+GRANT ALL ON DATABASE a TO readwrite, "test-user"
+
+query TTT
+SHOW GRANTS ON DATABASE a
+----
+a        readwrite READ,WRITE
+a        root      READ,WRITE
+a        test-user READ,WRITE
+
+# Create table to inherit DB permissions.
+statement ok
+CREATE TABLE a.t (id INT PRIMARY KEY)
+
+query TTT colnames
+SHOW GRANTS ON a.t
+----
+Table    User      Privileges
+a.t      readwrite READ,WRITE
+a.t      root      READ,WRITE
+a.t      test-user READ,WRITE
+
+query TTT
+SHOW GRANTS ON DATABASE a FOR readwrite, "test-user"
+----
+a        readwrite READ,WRITE
+a        test-user READ,WRITE
+
+statement ok
+REVOKE WRITE ON DATABASE a FROM "test-user",readwrite
+
+query TTT
+SHOW GRANTS ON DATABASE a
+----
+a        readwrite READ
+a        root      READ,WRITE
+a        test-user READ
+
+query TTT
+SHOW GRANTS ON DATABASE a FOR readwrite, "test-user"
+----
+a        readwrite READ
+a        test-user READ
+
+statement ok
+REVOKE READ ON DATABASE a FROM "test-user"
+
+query TTT
+SHOW GRANTS ON DATABASE a
+----
+a        readwrite READ
+a        root      READ,WRITE
+
+query TTT
+SHOW GRANTS ON DATABASE a FOR readwrite, "test-user"
+----
+a        readwrite READ
+
+statement ok
+REVOKE ALL ON DATABASE a FROM readwrite,"test-user"
+
+query TTT
+SHOW GRANTS ON DATABASE a
+----
+a        root      READ,WRITE
+
+query TTT
+SHOW GRANTS ON DATABASE a FOR readwrite, "test-user"
+----
+
+# Verify that the table privileges have not changed.
+query TTT colnames
+SHOW GRANTS ON a.t
+----
+Table    User      Privileges
+a.t      readwrite READ,WRITE
+a.t      root      READ,WRITE
+a.t      test-user READ,WRITE

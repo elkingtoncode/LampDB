@@ -1,0 +1,73 @@
+# SELECT with no table.
+
+query I
+SELECT 1
+----
+1
+
+query II colnames
+SELECT 1+1 AS two, 2+2 AS four
+----
+two four
+2   4
+
+# SELECT expression tests.
+
+statement ok
+CREATE TABLE abc (a INT PRIMARY KEY, b INT, c INT)
+
+statement ok
+INSERT INTO abc VALUES (1, 2, 3)
+
+query III colnames
+SELECT * FROM abc
+----
+a b c
+1 2 3
+
+query IIIIII colnames
+SELECT *,* FROM abc
+----
+a b c a b c
+1 2 3 1 2 3
+
+query IIII colnames
+SELECT a,a,a,a FROM abc
+----
+a a a a
+1 1 1 1
+
+query II colnames
+SELECT a,c FROM abc
+----
+a c
+1 3
+
+query I colnames
+SELECT a+b+c AS foo FROM abc
+----
+foo
+6
+
+# SELECT of NULL value.
+
+statement ok
+CREATE TABLE kv (k CHAR PRIMARY KEY, v CHAR)
+
+statement ok
+INSERT INTO kv (k) VALUES ('a')
+
+query TT
+SELECT * FROM kv
+----
+a NULL
+
+query TT
+SELECT k,v FROM kv
+----
+a NULL
+
+query T
+SELECT k FROM kv
+----
+1 value hashing to 60b725f10c9c85c70d97880dfe8191b3

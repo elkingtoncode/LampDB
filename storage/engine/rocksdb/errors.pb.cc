@@ -1,0 +1,1 @@
+./cockroach/proto/errors.pb.cc

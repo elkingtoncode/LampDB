@@ -1,0 +1,77 @@
+statement error table "kv" does not exist
+INSERT INTO kv VALUES ('a', 'b')
+
+statement ok
+CREATE TABLE kv (
+  k CHAR PRIMARY KEY,
+  v CHAR,
+  CONSTRAINT a UNIQUE (v)
+)
+
+query TT
+SELECT * FROM kv
+----
+
+statement error invalid values for columns
+INSERT INTO kv VALUES ('a')
+
+statement error missing "k" primary key column
+INSERT INTO kv (v) VALUES ('a')
+
+statement ok
+INSERT INTO kv (k) VALUES ('nil1')
+
+statement ok
+INSERT INTO kv (k) VALUES ('nil2')
+
+statement ok
+INSERT INTO kv VALUES ('nil3', NULL)
+
+statement ok
+INSERT INTO kv VALUES ('nil4', NULL)
+
+statement ok
+INSERT INTO kv (k,v) VALUES ('a', 'b'), ('c', 'd')
+
+statement ok
+INSERT INTO kv VALUES ('e', 'f')
+
+statement error duplicate key value .* violates unique constraint
+INSERT INTO kv VALUES ('e', 'f')
+
+statement ok
+INSERT INTO kv VALUES ('f', 'g')
+
+statement error duplicate key value .* violates unique constraint
+INSERT INTO kv VALUES ('g', 'g')
+
+query TT
+SELECT * FROM kv
+----
+a    b
+c    d
+e    f
+f    g
+nil1 NULL
+nil2 NULL
+nil3 NULL
+nil4 NULL
+
+statement ok
+CREATE TABLE kv2 (
+  k CHAR,
+  v CHAR,
+  CONSTRAINT a UNIQUE (v),
+  PRIMARY KEY (k, v)
+)
+
+statement ok
+INSERT INTO kv2 VALUES ('a', 'b'), ('c', 'd'), ('e', 'f'), ('f', 'g')
+
+query TT
+SELECT * FROM kv2
+----
+a   b
+c   d
+e   f
+f   g

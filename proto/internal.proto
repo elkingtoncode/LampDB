@@ -1,0 +1,213 @@
+// Copyright 2014 The Cockroach Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+// implied. See the License for the specific language governing
+// permissions and limitations under the License. See the AUTHORS file
+// for names of contributors.
+//
+// Author: Spencer Kimball (spencer.kimball@gmail.com)
+
+syntax = "proto2";
+package cockroach.proto;
+option go_package = "proto";
+
+import "cockroach/proto/api.proto";
+import "cockroach/proto/metadata.proto";
+import "gogoproto/gogo.proto";
+
+option (gogoproto.sizer_all) = true;
+option (gogoproto.marshaler_all) = true;
+option (gogoproto.unmarshaler_all) = true;
+
+// A ResponseCacheEntry is a union type containing instances of all
+// mutating commands. Note that any entry added here must be handled
+// in storage/engine/db.cc in GetResponseHeader(). This message is used
+// for storing responses to mutating commands in the response cache.
+message ResponseCacheEntry {
+  option (gogoproto.onlyone) = true;
+  oneof value {
+    PutResponse put = 1;
+    ConditionalPutResponse conditional_put = 2;
+    IncrementResponse increment = 3;
+    DeleteResponse delete = 4;
+    DeleteRangeResponse delete_range = 5;
+    EndTransactionResponse end_transaction = 6;
+    HeartbeatTxnResponse heartbeat_txn = 7;
+    GCResponse gc = 8;
+    PushTxnResponse push_txn = 9;
+    ResolveIntentResponse resolve_intent = 10;
+    ResolveIntentRangeResponse resolve_intent_range = 11;
+    MergeResponse merge = 12;
+    TruncateLogResponse truncate_log = 13;
+    LeaderLeaseResponse leader_lease = 14;
+    BatchResponse batch = 30;
+  }
+}
+
+// A RaftCommandUnion is the union of all commands which can be sent
+// via raft.
+message RaftCommandUnion {
+  option (gogoproto.onlyone) = true;
+  oneof value {
+    // Non-batched external requests. This section is the same as RequestUnion.
+    GetRequest get = 1;
+    PutRequest put = 2;
+    ConditionalPutRequest conditional_put = 3;
+    IncrementRequest increment = 4;
+    DeleteRequest delete = 5;
+    DeleteRangeRequest delete_range = 6;
+    ScanRequest scan = 7;
+    EndTransactionRequest end_transaction = 8;
+
+    RangeLookupRequest range_lookup = 9;
+    HeartbeatTxnRequest heartbeat_txn = 10;
+    GCRequest gc = 11 [(gogoproto.customname) = "GC"];
+    PushTxnRequest push_txn = 12;
+    ResolveIntentRequest resolve_intent = 13;
+    ResolveIntentRangeRequest resolve_intent_range = 14;
+    MergeRequest merge_response = 15;
+    TruncateLogRequest truncate_log = 16;
+    LeaderLeaseRequest lease = 17;
+    ReverseScanRequest reverse_scan = 18;
+
+    // Other requests. Allow a gap in tag numbers so the previous list can
+    // be copy/pasted from RequestUnion.
+    BatchRequest batch = 30;
+  }
+}
+
+// A RaftCommand is a command which can be serialized and sent via
+// raft.
+message RaftCommand {
+  optional int64 range_id = 1 [(gogoproto.nullable) = false,
+      (gogoproto.customname) = "RangeID", (gogoproto.casttype) = "RangeID"];
+  optional uint64 origin_node_id = 2 [(gogoproto.nullable) = false,
+      (gogoproto.customname) = "OriginNodeID", (gogoproto.casttype) = "RaftNodeID"];
+  optional RaftCommandUnion cmd = 3 [(gogoproto.nullable) = false];
+}
+
+// RaftMessageRequest is the request used to send raft messages using our
+// protobuf-based RPC codec. Unlike most of the requests defined in this file
+// and api.proto, this one is implemented in a separate service defined in
+// server/transport.go.
+//
+// This is the equivalent of the non-protobuf multiraft.RaftMessageRequest.
+message RaftMessageRequest {
+  optional uint64 group_id = 1 [(gogoproto.nullable) = false,
+      (gogoproto.customname) = "GroupID", (gogoproto.casttype) = "RangeID"];
+
+  // The raft payload, an encoded raftpb.Message. We transmit the message as
+  // an opaque blob to avoid the complexity of importing proto files across
+  // packages.
+  optional bytes msg = 2;
+}
+
+// RaftMessageResponse is an empty message returned by raft RPCs.
+message RaftMessageResponse {
+}
+
+// InternalValueType defines a set of string constants placed in the
+// "tag" field of Value messages which are created internally. These
+// are defined as a protocol buffer enumeration so that they can be
+// used portably between our Go and C code. The tags are used by the
+// RocksDB Merge Operator to perform specialized merges.
+enum InternalValueType {
+  option (gogoproto.goproto_enum_prefix) = false;
+  // _CR_TS is applied to values which contain InternalTimeSeriesData.
+  _CR_TS = 1;
+}
+
+// InternalTimeSeriesData is a collection of data samples for some
+// measurable value, where each sample is taken over a uniform time
+// interval.
+//
+// The collection itself contains a start timestamp (in seconds since the unix
+// epoch) and a sample duration (in milliseconds). Each sample in the collection
+// will contain a positive integer offset that indicates the length of time
+// between the start_timestamp of the collection and the time when the sample
+// began, expressed as an whole number of sample intervals. For example, if the
+// sample duration is 60000 (indicating 1 minute), then a contained sample with
+// an offset value of 5 begins (5*60000ms = 300000ms = 5 minutes) after the
+// start timestamp of this data.
+//
+// This is meant to be an efficient internal representation of time series data,
+// ensuring that very little redundant data is stored on disk. With this goal in
+// mind, this message does not identify the variable which is actually being
+// measured; that information is expected be encoded in the key where this
+// message is stored.
+message InternalTimeSeriesData {
+  // Holds a wall time, expressed as a unix epoch time in nanoseconds. This
+  // represents the earliest possible timestamp for a sample within the
+  // collection.
+  optional int64 start_timestamp_nanos = 1 [(gogoproto.nullable) = false];
+  // The duration of each sample interval, expressed in nanoseconds.
+  optional int64 sample_duration_nanos = 2 [(gogoproto.nullable) = false];
+  // The actual data samples for this metric.
+  repeated InternalTimeSeriesSample samples = 3;
+}
+
+// A InternalTimeSeriesSample represents data gathered from multiple
+// measurements of a variable value over a given period of time. The
+// length of that period of time is stored in an
+// InternalTimeSeriesData message; a sample cannot be interpreted
+// correctly without a start timestamp and sample duration.
+//
+// Each sample may contain data gathered from multiple measurements of the same
+// variable, as long as all of those measurements occured within the sample
+// period. The sample stores several aggregated values from these measurements:
+// - The sum of all measured values
+// - A count of all measurements taken
+// - The maximum individual measurement seen
+// - The minimum individual measurement seen
+//
+// If zero measurements are present in a sample, then it should be omitted
+// entirely from any collection it would be a part of.
+//
+// If the count of measurements is 1, then max and min fields may be omitted
+// and assumed equal to the sum field.
+message InternalTimeSeriesSample {
+  // Temporal offset from the "start_timestamp" of the InternalTimeSeriesData
+  // collection this data point is part in. The units of this value are
+  // determined by the value of the "sample_duration_milliseconds" field of
+  // the TimeSeriesData collection.
+  optional int32 offset = 1 [(gogoproto.nullable) = false];
+
+  // Count of measurements taken within this sample.
+  optional uint32 count = 6 [(gogoproto.nullable) = false];
+  // Sum of all measurements.
+  optional double sum = 7 [(gogoproto.nullable) = false];
+  // Maximum encountered measurement in this sample.
+  optional double max = 8;
+  // Minimum encountered measurement in this sample.
+  optional double min = 9;
+}
+
+// RaftTruncatedState contains metadata about the truncated portion of the raft log.
+// Raft requires access to the term of the last truncated log entry even after the
+// rest of the entry has been discarded.
+message RaftTruncatedState {
+  // The highest index that has been removed from the log.
+  optional uint64 index = 1 [(gogoproto.nullable) = false];
+  // The term corresponding to 'index'.
+  optional uint64 term = 2 [(gogoproto.nullable) = false];
+}
+
+// RaftSnapshotData is the payload of a raftpb.Snapshot. It contains a raw copy of
+// all of the range's data and metadata, including the raft log, response cache, etc.
+message RaftSnapshotData {
+  message KeyValue {
+    optional bytes key = 1;
+    optional bytes value = 2;
+  }
+  // The latest RangeDescriptor
+  optional RangeDescriptor range_descriptor = 1 [(gogoproto.nullable) = false];
+  repeated KeyValue KV = 2 [(gogoproto.customname) = "KV"];
+}

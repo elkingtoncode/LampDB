@@ -1,43 +1,49 @@
-# Windows image file caches
-Thumbs.db
-ehthumbs.db
+# Compiled Object files, Static and Dynamic libs (Shared Objects)
+*.o
+*.a
+*.so
+*~
+.#*
+*.test
 
-# Folder config file
-Desktop.ini
+# Log Files
+*.ERROR
+*.ERROR.*
+*.INFO
+*.INFO.*
+*.WARNING
+*.WARNING.*
+*.FATAL
+*.FATAL.*
 
-# Recycle Bin used on file shares
-$RECYCLE.BIN/
+# Folders
+_obj
+_test
+certs
 
-# Windows Installer files
-*.cab
-*.msi
-*.msm
-*.msp
+Architecture specific extensions/prefixes
+*.cgo1.go
+*.cgo2.c
+_cgo_defun.c
+_cgo_gotypes.go
+_cgo_export.*
 
-# Windows shortcuts
-*.lnk
+_testmain.go
 
-# =========================
-# Operating System Files
-# =========================
-
-# OSX
-# =========================
+*.exe
 
 .DS_Store
-.AppleDouble
-.LSOverride
 
-# Thumbnails
-._*
+/cockroach
+*.swp
 
-# Files that might appear on external disk
-.Spotlight-V100
-.Trashes
 
-# Directories potentially created on remote AFP share
-.AppleDB
-.AppleDesktop
-Network Trash Folder
-Temporary Items
-.apdisk
+# NPM node modules
+node_modules
+npm.installed
+
+# That file is present in the cockroach-dev Docker container, required to avoid
+# untracked files.
+cockroach.sh
+
+.bootstrap
